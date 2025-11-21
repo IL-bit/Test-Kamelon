@@ -6,7 +6,8 @@ export interface AppState {
   theme: string;
   style: string;
   charts: number[];
-  date: string
+  date: string,
+  download: boolean
 }
 
 const initialState: AppState = {
@@ -14,7 +15,8 @@ const initialState: AppState = {
   theme: 'light',
   style: 'line',
   charts: [],
-  date: 'Month'
+  date: 'Month',
+  download: false
 };
 
 const appReducer = createReducer(initialState, (builder) => {
@@ -39,6 +41,12 @@ const appReducer = createReducer(initialState, (builder) => {
     })
     .addCase(NewDate, (state, action) => {  
       state.date= action.payload;
+    })    
+    .addCase('DOWNLOAD', (state) => {
+      state.download = true;
+    })
+    .addCase('NODOWNLOAD', (state) => {
+      state.download = false;
     });
 });
 

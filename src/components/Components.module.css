@@ -1,9 +1,9 @@
 .button, .button2, .button3 {
   width: 161px;
   height: 28px;
-  border: 1px solid #C7C5D0;
+  border-width: 1px;
+  border-style: solid;
   border-radius: 4%;
-  color: #1b1b23;
   font-size: 14px;
   font-family: Roboto, "Regular";
   font-weight: 400;
@@ -20,18 +20,20 @@
   display: none;
   height: auto;
   width: 161px;
-  border: 1px solid #C7C5D0;
+  border-width: 1px;
+  border-style: solid;
   border-radius: 4%;
   padding: 0;
   >li {
-    color: #1b1b23;
     font-size: 14px;
     font-family: Roboto, "Regular";
     font-weight: 400;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-bottom: 1px solid #C7C5D0;
+    border: none;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
     cursor: pointer;
   }
   >:nth-last-child(1) {
@@ -49,14 +51,18 @@
   width: 140px;
   min-width: 140px;
 }
-.active {
+.active.light {
   background-color: #C7C5D0;
 } 
+.active.dark {
+    background-color: #414163;
+}
 .selectBtn, .reset {
   padding: 0;
   height: 28px;
   width: 28px;
-  border: 1px solid #E1DFE7;
+  border-width: 1px;
+  border-style: solid;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,12 +78,14 @@
 .reset {
   border: none;
   margin-right: 0;
+  background: none;
 }
 .zoom, .theme {
   padding: 0;
   height: 28px;
-  width: 58px;
-  border: 1px solid #E1DFE7;
+  width: 57px;
+  border-width: 1px;
+  border-style: solid;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -99,6 +107,26 @@
     }
   }
   >:nth-child(1) {
-    border-right: 1px solid #E1DFE7;
+    border-right-width: 1px;
+    border-right-style: solid;
+  }
+}
+.chart {
+  width: 100%;
+  height: auto;
+  margin-top: 50px;
+}
+.light {
+  border-color: #C7C5D0 !important;
+  color: #1b1b23 !important;
+}
+.dark {
+  border-color: #414163 !important;
+  background-color: #414163 !important;
+  color: #fff !important;
+  >button {
+    border-color: #414163 !important;
+    background-color: #414163 !important;
+    color: #fff !important;
   }
 }

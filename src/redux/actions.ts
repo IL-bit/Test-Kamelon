@@ -10,6 +10,6 @@ export const ZoomReset = createAction('ZOOMRESET');
 export const NewCharts = createAction<number[]>('NewCharts');
 export const NewDate = createAction<string>('NewDate');
 
-export const NewStyle = createAction<string>('NewStyle');
-
+export const DownLoad = createAction('DOWNLOAD');
+export const NODownLoad = createAction('NODOWNLOAD');
 // export const  = createAction<string>('');
