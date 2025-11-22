@@ -8,21 +8,11 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 import styles from './Components.module.css';
 import rawJson from '../data.json';
 
-interface DateState {
-  date: string
-};
-interface StyleState {
-  style: string
-};
-interface ChartsState {
-  charts: number[]
-};
-interface ZoomState {
-  valueZoom: number
-};
-interface DownloadState {
-  download: boolean
-}
+interface DateState { date: string };
+interface StyleState { style: string };
+interface ChartsState { charts: number[] };
+interface ZoomState { valueZoom: number };
+interface DownloadState { download: boolean };
 
 interface DayData {
   date: string;
@@ -36,26 +26,38 @@ interface RootData {
 };
 
 export interface DataSet {
-  label: string,
-  data: number[],
-  borderColor: string,
-  backgroundColor: string,
-  fill: boolean,
-  tension: number,
-  id: number
+  label: string;
+  data: number[];
+  borderColor: string;
+  backgroundColor: string;
+  fill: boolean;
+  tension: number;
+  id: number;
 };
-
 
 const Charts: React.FC = () => {
   const dispatch = useDispatch();
   const data = rawJson as RootData;
+
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstanceRef = useRef<Chart | null>(null);
-  const isDownload = useSelector((state: DownloadState) => state.download);
-  const currStyle = useSelector((state: StyleState) => state.style);
-  const currTheme = useSelector((state: ThemeState) => state.theme);
-  const currColor = currTheme === 'light' ? "#e0e0e0" : "#000027";
-  const currColorText = currTheme === 'light' ? "#000" : "#fff";
+
+  const isDownload = useSelector((s: DownloadState) => s.download);
+  const currStyle = useSelector((s: StyleState) => s.style);
+  const currTheme = useSelector((s: ThemeState) => s.theme);
+  const currTypeDate = useSelector((s: DateState) => s.date);
+  const currChartsSet = useSelector((s: ChartsState) => s.charts);
+  const currZoom = useSelector((s: ZoomState) => s.valueZoom);
+
+  const [isHovered, setIsHovered] = useState(false);
+  const [tooltipData, setTooltipData] = useState<{ date: string; values: { label: string; value: number; color: string }[]; } | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+
+  const [datasets, setDatasets] = useState<DataSet[]>([]);
+
+  const currColor = currTheme === "light" ? "#e0e0e0" : "#000027";
+  const currColorText = currTheme === "light" ? "#000" : "#fff";
+
   const chartColors = [
     { border: "rgba(255, 99, 71, 1)", bg: "rgba(255, 99, 71, 0.2)" },
     { border: "rgba(0, 255, 255, 1)", bg: "rgba(0, 255, 255, 0.2)" },
@@ -66,120 +68,100 @@ const Charts: React.FC = () => {
     { border: "rgba(0, 191, 255, 1)", bg: "rgba(0, 191, 255, 0.2)" },
   ];
 
-  const currTypeDate = useSelector((state: DateState) => state.date);
-  const currChartsSet = useSelector((state: ChartsState) => state.charts);
-  const currZoom = useSelector((state: ZoomState) => state.valueZoom);
+  const allLabels = data.data.map(d => d.date).sort();
 
-  const [isHovered, setIsHovered] = useState(false);
-  const [tooltipData, setTooltipData] = useState<{ date: string; values: { label: string; value: number; color: string }[] } | null>(null);
-  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
-  const [datasets, setDatasets] = useState<DataSet[]>([]);
-
-  const allLabels: string[] = data.data.map(item => item.date).sort();
-  const allDataSets: DataSet[] = data.variations.map((variation, index) => {
-    const id = String(variation.id);
-    const color = chartColors[index % chartColors.length]; 
-    const datasetValues = data.data.map(day => {
-      const visits = day.visits[id] ?? 0;
-      const conversions = day.conversions[id] ?? 0;
-      if (visits === 0) return 0;
-      return Math.round((conversions / visits) * 100);
+  const allDataSets: DataSet[] = data.variations.map((v, idx) => {
+    const color = chartColors[idx % chartColors.length];
+    const values = data.data.map(day => {
+      const visits = day.visits[String(v.id)] ?? day.visits[v.id] ?? 0;
+      const conv = day.conversions[String(v.id)] ?? day.conversions[v.id] ?? 0;
+      return visits === 0 ? 0 : Math.round((conv / visits) * 100);
     });
-
     return {
-      label: variation.name,
-      data: datasetValues,
+      label: v.name,
+      data: values,
       borderColor: color.border,
       backgroundColor: color.bg,
       fill: false,
       tension: 0,
-      id: variation.id
+      id: v.id
     };
   });
 
+  // Style
   const ChangeStyle = () => {
-    if (currStyle === 'area') {
-      allDataSets.forEach(ds => {
-        ds.fill = true;
-        ds.tension = 0.4;
-      });
+    const stylesMap: Record<string, { fill: boolean; tension: number }> = {
+      line: { fill: false, tension: 0 },
+      area: { fill: true, tension: 0.4 },
+      smooth: { fill: false, tension: 0.4 }
     };
-    if (currStyle === 'line') {
-      allDataSets.forEach(ds => {
-        ds.fill = false;
-        ds.tension = 0;
-      });
-    };
-    if (currStyle === 'smooth') {
-      allDataSets.forEach(ds => {
-        ds.fill = false;
-        ds.tension = 0.4;
-      });
-    }
+
+    const config = stylesMap[currStyle] ?? stylesMap.line;
+
+    allDataSets.forEach(ds => {
+      ds.fill = config.fill;
+      ds.tension = config.tension;
+    });
   };
 
-
-
-  const getSliceRange = (type: string, allLabels: string[]) => {
-    const lastDate = allLabels[allLabels.length - 1];
-    const lastMonth = lastDate.slice(0, 7);          
+  // Day/Week
+  const getSliceRange = (type: string) => {
     if (type === "Day") {
-      return allLabels.length - 2;
-    };
-    if (type === "Week") {
-      return allLabels.length - 7;
-    };
-    if (type === "Month") {
-      let index = allLabels.length - 1;
-      while (index >= 0 && allLabels[index].startsWith(lastMonth)) {
-        index--;
-      }
-      return index + 1;
-    };
-    return 0;
-  };
-  const calculateMaxY = (datasets: { data: number[] }[], paddingPercent = 15): number => {
-    const maxValue = Math.max(...datasets.flatMap(d => d.data));
-    return Math.ceil(maxValue * (1 + paddingPercent / 100));
-  };
-  const downloadChart = () => {
-    if (isDownload) {
-      dispatch(NODownLoad());
-      const chart = chartInstanceRef.current;
-      if (!chart) return;
-      const url = chart.toBase64Image();
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'chart.png';
-      a.click();
-    };     
+      return { labels: allLabels };
+    }
+
+    const labels: string[] = [];
+    for (let i = 0; i < allLabels.length; i += 7) {
+      const start = allLabels[i];
+      const end = allLabels[Math.min(i + 6, allLabels.length - 1)];
+      labels.push(`${start} - ${end}`);
+    }
+
+    return { labels };
   };
 
+  const calculateMaxY = (ds: { data: number[] }[]) =>
+    Math.ceil(Math.max(...ds.flatMap(s => s.data)) * 1.15);
+
+  // Download
   useEffect(() => {
-    downloadChart();
-  }, [isDownload]);
+    if (!isDownload) return;
 
-  const initialXRangeRef = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
+    dispatch(NODownLoad());
+    const chart = chartInstanceRef.current;
+    if (!chart) return;
+
+    const url = chart.toBase64Image();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "chart.png";
+    a.click();
+  }, [isDownload, dispatch]);
+
+  // Zoom
+  const initialXRange = useRef({ min: 0, max: 0 });
   useEffect(() => {
     const chart = chartInstanceRef.current;
     if (!chart) return;
 
-    const xScale = chart.scales['x'];
-    if (initialXRangeRef.current.min === 0 && initialXRangeRef.current.max === 0) {
-      initialXRangeRef.current = { min: xScale.min, max: xScale.max };
-    };
-    const { min, max } = initialXRangeRef.current;
+    const x = chart.scales["x"] as any;
+
+    if (initialXRange.current.min === 0 && initialXRange.current.max === 0) {
+      initialXRange.current = { min: x.min, max: x.max };
+    }
+
+    const { min, max } = initialXRange.current;
     const center = (min + max) / 2;
-    const range = max - min;
+    const span = max - min;
     const scale = 1 + currZoom / 10;
-    const newMin = center - (range / 2) / scale;
-    const newMax = center + (range / 2) / scale;
 
-    xScale.options.min = newMin;
-    xScale.options.max = newMax;
+    x.options.min = center - span / 2 / scale;
+    x.options.max = center + span / 2 / scale;
 
-    chart.update('none');
+    chart.update("none");
   }, [currZoom]);
+
+  // Chart
   useEffect(() => {
     ChangeStyle();
     if (!chartRef.current) return;
@@ -187,121 +169,100 @@ const Charts: React.FC = () => {
     const ctx = chartRef.current.getContext("2d");
     if (!ctx) return;
 
-    const startIndex = getSliceRange(currTypeDate, allLabels);
-    const labels = allLabels.slice(startIndex);
+    const slice = getSliceRange(currTypeDate);
+    const labels = slice.labels;
 
-    const filteredDatasets: DataSet[] = currChartsSet.length > 0 ? allDataSets.filter(ds => currChartsSet.includes(ds.id)) : allDataSets;
-    setDatasets(filteredDatasets); 
-    const data = { labels, datasets: filteredDatasets };
+    const visibleSets = currChartsSet.length > 0 ? allDataSets.filter(ds => currChartsSet.includes(ds.id)) : allDataSets;
 
-    const options = {
+    const finalSets = currTypeDate === "Week" ? visibleSets.map(ds => {
+      const length = Math.ceil(ds.data.length / 7);
+      const weekly = Array.from({ length }, (_, i) => {
+        const chunk = ds.data.slice(i * 7, i * 7 + 7);
+        return Math.round(chunk.reduce((a, b) => a + b, 0) / chunk.length);
+      });
+      return { ...ds, data: weekly };
+    }) : visibleSets;
+
+    setDatasets(finalSets);
+
+    const chartData = { labels, datasets: finalSets };
+
+    const options: any = {
       responsive: true,
       scales: {
         y: {
           min: 0,
-          max: calculateMaxY(datasets),
+          max: calculateMaxY(finalSets),
           ticks: {
-            color: currColorText, 
-            callback: function (
-              this: any,
-              tickValue: string | number,
-              index: number,
-              ticks: any[]
-            ): string | number | string[] | number[] | null | undefined {
-              return `${tickValue}%`;
-            }
+            color: currColorText,
+            callback: (v: number) => `${v}%`
           },
-
-          grid: {
-            display: false,
-            drawBorder: true,
-            borderColor: '#fff',
-            color: currColor,
-            tickColor: currColor
-          },
+          grid: { display: false, borderColor: "#fff", color: currColor }
         },
         x: {
-          grid: {
-            display: false,
-            drawBorder: true,
-            color: currColor,
-            borderColor: '#fff',
-            tickColor: currColor
-          },
-          ticks: {
-            color: currColorText, 
-          }
-        },
+          ticks: { color: currColorText },
+          grid: { display: false, borderColor: "#fff", color: currColor }
+        }
       },
       plugins: {
         zoom: {
-          zoom: {
-            wheel: { enabled: false },
-            pinch: { enabled: false },
-            mode: 'x' as const,
-          },
-          pan: {
-            enabled: false,
-          }
+          zoom: { wheel: { enabled: false }, pinch: { enabled: false }, mode: "x" as const },
+          pan: { enabled: false }
         },
         legend: { display: false },
         tooltip: {
           enabled: false,
-          intersect: false, 
-          external: (context: any) => {
-            console.log('Tooltip external called:', context.tooltip);
-            if (context.tooltip.opacity === 0) {
+          intersect: false,
+          external: function (this: any, args: { chart: Chart; tooltip: any }) {
+            const tooltip = args.tooltip;
+            if (!tooltip || tooltip.opacity === 0) {
               setIsHovered(false);
               setTooltipData(null);
               setTooltipPosition(null);
               return;
             }
+
+            const idx = tooltip.dataPoints?.[0]?.dataIndex;
+            if (idx == null) return;
+
             setIsHovered(true);
-            const dataIndex = context.tooltip.dataPoints[0]?.dataIndex;
-            if (dataIndex === undefined) return; 
-            const date = labels[dataIndex];
-            const values = filteredDatasets.map(ds => ({
-              label: ds.label,
-              value: ds.data[dataIndex],
-              color: ds.borderColor
-            }));
-            setTooltipData({ date, values });
-            setTooltipPosition({ x: context.tooltip.x, y: context.tooltip.y });
+            setTooltipPosition({ x: tooltip.x, y: tooltip.y });
+
+            setTooltipData({
+              date: labels[idx],
+              values: finalSets.map(ds => ({
+                label: ds.label,
+                value: ds.data[idx],
+                color: ds.borderColor
+              }))
+            });
           }
-        },
+        }
       },
-      elements: {
-        point: {
-          radius: 0, 
-        },
-      },
+      elements: { point: { radius: 0 } }
     };
 
-    if (chartInstanceRef.current) {
-      chartInstanceRef.current.destroy();
-    }
-    chartInstanceRef.current = new Chart(ctx, { type: "line", data, options });
+    if (chartInstanceRef.current) chartInstanceRef.current.destroy();
+    chartInstanceRef.current = new Chart(ctx, { type: "line", data: chartData, options });
 
-    return () => { chartInstanceRef.current?.destroy() };
-    
-  }, [currColor, currTypeDate, currChartsSet, currStyle]);
-
+    return () => chartInstanceRef.current?.destroy();
+  }, [currColor, currTypeDate, currChartsSet, currStyle, currColorText]);
 
   return (
     <div className="col-12">
-      <div className={styles.chart}> 
+      <div className={styles.chart}>
         <canvas ref={chartRef}></canvas>
+
         {isHovered && tooltipData && tooltipPosition && (
-          <ToolTip 
-            variations={datasets} 
-            tooltipData={tooltipData} 
-            position={tooltipPosition} 
+          <ToolTip
+            variations={datasets}
+            tooltipData={tooltipData}
+            position={tooltipPosition}
           />
         )}
-      </div>      
+      </div>
     </div>
   );
-}
+};
 
 export default Charts;
-  

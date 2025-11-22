@@ -19,7 +19,7 @@ const initialState: AppState = {
   theme: 'light',
   style: 'line',
   charts: [],
-  date: 'Month',
+  date: 'Week',
   download: false
 };
 
@@ -29,7 +29,7 @@ const appReducer = createReducer(initialState, (builder) => {
       state.valueZoom += 5;
     })
     .addCase('ZOOMMINUS', (state) => {
-      state.valueZoom -= 5;
+      state.valueZoom -= 5;    
     })
     .addCase('ZOOMRESET', (state) => {
       state.valueZoom = 0;
