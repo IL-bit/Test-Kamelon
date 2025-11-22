@@ -9,10 +9,7 @@ import sun from '../img/sun.svg';
 import moon from '../img/moon.svg';
 import reset from '../img/reset.svg';
 import styles from './Components.module.css';
-
-interface ThemeState {
-  theme: string
-};
+import { ThemeState } from '../redux/reducer';
 
 const HeaderRightCol: React.FC = () => {
     const dispatch = useDispatch();

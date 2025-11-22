@@ -4,10 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { NewCharts, NewDate } from '../redux/actions';
 import styles from './Components.module.css';
 import data from '../data.json';
-
-interface ThemeState {
-  theme: string
-};
+import { ThemeState } from '../redux/reducer';
 
 const HeaderLeftCol: React.FC = () => {
     const dispatch = useDispatch();

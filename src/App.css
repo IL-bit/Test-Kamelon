@@ -1,6 +1,9 @@
-.container {
-  padding-top: 15px;
-}
+
 body.dark {
   background-color: #000027;
+}
+.row {
+  >div {
+    margin-top: 15px;
+  }
 }

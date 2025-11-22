@@ -1,14 +1,18 @@
 import { createReducer } from '@reduxjs/toolkit';
-import { ChangeStyle, ChangeTheme, NewCharts, NewDate} from './actions'; 
+import { ChangeStyle, ChangeTheme, NewCharts, NewDate } from './actions'; 
 
-export interface AppState {
+export interface ThemeState {
+  theme: string
+};
+
+export interface AppState extends ThemeState {
   valueZoom: number;
-  theme: string;
   style: string;
   charts: number[];
   date: string,
   download: boolean
-}
+};
+
 
 const initialState: AppState = {
   valueZoom: 0,
@@ -40,7 +44,7 @@ const appReducer = createReducer(initialState, (builder) => {
       state.charts = action.payload;
     })
     .addCase(NewDate, (state, action) => {  
-      state.date= action.payload;
+      state.date = action.payload;
     })    
     .addCase('DOWNLOAD', (state) => {
       state.download = true;

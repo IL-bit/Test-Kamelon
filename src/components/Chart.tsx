@@ -1,15 +1,13 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { NODownLoad } from "../redux/actions";
+import { ThemeState } from '../redux/reducer';
 import Chart from "chart.js/auto";
+import ToolTip from "./ToolTip";
 import zoomPlugin from 'chartjs-plugin-zoom';
 import styles from './Components.module.css';
 import rawJson from '../data.json';
 
-
-interface ThemeState {
-  theme: string
-};
 interface DateState {
   date: string
 };
@@ -37,7 +35,7 @@ interface RootData {
   data: DayData[];
 };
 
-interface DataSet {
+export interface DataSet {
   label: string,
   data: number[],
   borderColor: string,
@@ -72,6 +70,11 @@ const Charts: React.FC = () => {
   const currChartsSet = useSelector((state: ChartsState) => state.charts);
   const currZoom = useSelector((state: ZoomState) => state.valueZoom);
 
+  const [isHovered, setIsHovered] = useState(false);
+  const [tooltipData, setTooltipData] = useState<{ date: string; values: { label: string; value: number; color: string }[] } | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const [datasets, setDatasets] = useState<DataSet[]>([]);
+
   const allLabels: string[] = data.data.map(item => item.date).sort();
   const allDataSets: DataSet[] = data.variations.map((variation, index) => {
     const id = String(variation.id);
@@ -89,12 +92,8 @@ const Charts: React.FC = () => {
       borderColor: color.border,
       backgroundColor: color.bg,
       fill: false,
-      tension: 0.4,
-      id: variation.id,
-      glow: {
-        color: color.bg, 
-        blur: 130          
-      }
+      tension: 0,
+      id: variation.id
     };
   });
 
@@ -102,11 +101,19 @@ const Charts: React.FC = () => {
     if (currStyle === 'area') {
       allDataSets.forEach(ds => {
         ds.fill = true;
+        ds.tension = 0.4;
       });
     };
     if (currStyle === 'line') {
       allDataSets.forEach(ds => {
         ds.fill = false;
+        ds.tension = 0;
+      });
+    };
+    if (currStyle === 'smooth') {
+      allDataSets.forEach(ds => {
+        ds.fill = false;
+        ds.tension = 0.4;
       });
     }
   };
@@ -154,7 +161,6 @@ const Charts: React.FC = () => {
 
   const initialXRangeRef = useRef<{ min: number; max: number }>({ min: 0, max: 0 });
   useEffect(() => {
-    console.log(currZoom)
     const chart = chartInstanceRef.current;
     if (!chart) return;
 
@@ -183,10 +189,11 @@ const Charts: React.FC = () => {
 
     const startIndex = getSliceRange(currTypeDate, allLabels);
     const labels = allLabels.slice(startIndex);
-    const datasets: DataSet[] = currChartsSet.length > 0 ? allDataSets.filter(ds => currChartsSet.includes(ds.id)) : allDataSets;
 
+    const filteredDatasets: DataSet[] = currChartsSet.length > 0 ? allDataSets.filter(ds => currChartsSet.includes(ds.id)) : allDataSets;
+    setDatasets(filteredDatasets); 
+    const data = { labels, datasets: filteredDatasets };
 
-    const data = { labels, datasets };
     const options = {
       responsive: true,
       scales: {
@@ -238,6 +245,30 @@ const Charts: React.FC = () => {
           }
         },
         legend: { display: false },
+        tooltip: {
+          enabled: false,
+          intersect: false, 
+          external: (context: any) => {
+            console.log('Tooltip external called:', context.tooltip);
+            if (context.tooltip.opacity === 0) {
+              setIsHovered(false);
+              setTooltipData(null);
+              setTooltipPosition(null);
+              return;
+            }
+            setIsHovered(true);
+            const dataIndex = context.tooltip.dataPoints[0]?.dataIndex;
+            if (dataIndex === undefined) return; 
+            const date = labels[dataIndex];
+            const values = filteredDatasets.map(ds => ({
+              label: ds.label,
+              value: ds.data[dataIndex],
+              color: ds.borderColor
+            }));
+            setTooltipData({ date, values });
+            setTooltipPosition({ x: context.tooltip.x, y: context.tooltip.y });
+          }
+        },
       },
       elements: {
         point: {
@@ -258,11 +289,17 @@ const Charts: React.FC = () => {
 
   return (
     <div className="col-12">
-      <div className={styles.chart}>
+      <div className={styles.chart}> 
         <canvas ref={chartRef}></canvas>
+        {isHovered && tooltipData && tooltipPosition && (
+          <ToolTip 
+            variations={datasets} 
+            tooltipData={tooltipData} 
+            position={tooltipPosition} 
+          />
+        )}
       </div>      
     </div>
-
   );
 }
 
